@@ -15,18 +15,101 @@ A local-first hobby and skills tracker with a polished React dashboard and an in
 - Run automated API tests with a temporary SQLite database and synthetic users.
 - Explore REST documentation at `/docs` after starting the API.
 
-## Architecture
+## 🏗️ Project Architecture
 
 ```text
-Browser (React + Vite)
-  ├── local demo state: localStorage
-  └── /api proxy in development ──> FastAPI + SQLAlchemy
-                                      ├── SQLite (users, skills, practice, goals, posts)
-                                      ├── local uploads/ (private image objects)
-                                      └── JWT auth + analytics
+Online-Cloud-Hobby-Skills-Tracker/
+│
+├── 📁 .github/
+│   └── workflows/              # GitHub Actions / CI-CD workflows
+│
+├── 📁 backend/
+│   ├── controllers/            # Application business logic
+│   ├── routes/                 # API route definitions
+│   ├── models/                 # Data models / schemas
+│   ├── middleware/             # Authentication & request middleware
+│   ├── services/               # Backend services and integrations
+│   └── config/                 # Backend configuration
+│
+├── 📁 cloud/
+│   └── firebase/               # Firebase / cloud configuration
+│       ├── firestore/          # Firestore database configuration
+│       ├── auth/               # Firebase Authentication
+│       └── storage/            # Cloud Storage configuration
+│
+├── 📁 docs/
+│   ├── architecture/           # System architecture documentation
+│   ├── api/                    # API documentation
+│   ├── database/               # Database documentation
+│   └── user-guide/             # User guides and project documentation
+│
+├── 📁 public/
+│   ├── images/                 # Public images and assets
+│   ├── icons/                  # Application icons
+│   └── favicon/                # Website favicon
+│
+├── 📁 reports/
+│   ├── testing/                # Testing reports
+│   ├── project-report/         # Project documentation/reports
+│   └── performance/            # Performance analysis
+│
+├── 📁 screenshots/
+│   ├── dashboard/              # Dashboard screenshots
+│   ├── profile/                # User profile screenshots
+│   ├── hobbies/                # Hobby tracking screenshots
+│   └── community/              # Community feature screenshots
+│
+├── 📁 src/
+│   ├── components/             # Reusable UI components
+│   ├── pages/                  # Application pages
+│   ├── layouts/                # Page layouts
+│   ├── services/               # API / Firebase services
+│   ├── hooks/                  # Custom React hooks
+│   ├── context/                # Global application state
+│   ├── utils/                  # Utility functions
+│   ├── assets/                 # Frontend assets
+│   ├── styles/                 # CSS / styling
+│   └── App.*                   # Main application component
+│
+├── 📄 .env.example             # Environment variable template
+├── 📄 .gitignore               # Git ignored files
+├── 📄 .oxlintrc.json           # Code quality / lint configuration
+├── 📄 README.md                # Project documentation
+├── 📄 index.html               # Application entry HTML
+├── 📄 package.json              # Dependencies and scripts
+└── 📄 package-lock.json         # Locked dependency versions
 ```
-
-
+## 🔄 System Architecture
+```
+                         👤 USER
+                           │
+                           ▼
+                 ┌────────────────────┐
+                 │   🌐 Web Frontend  │
+                 │       src/         │
+                 └─────────┬──────────┘
+                           │
+             ┌─────────────┴─────────────┐
+             │                           │
+             ▼                           ▼
+      ┌──────────────┐           ┌──────────────┐
+      │ 🔐 Firebase  │           │ ⚙️ Backend   │
+      │ Authentication│           │    APIs      │
+      └──────┬───────┘           └──────┬───────┘
+             │                           │
+             │                  ┌────────┴────────┐
+             │                  │                 │
+             ▼                  ▼                 ▼
+      ┌────────────┐     ┌────────────┐    ┌────────────┐
+      │ Firestore  │     │   Hobby &  │    │ Community  │
+      │  Database  │     │   Skills   │    │  Sharing   │
+      └────────────┘     │   Service  │    │   Service  │
+                         └────────────┘    └────────────┘
+                                │
+                                ▼
+                       ☁️ Cloud Services
+                       
+```
 
 ## Security Notes
 
