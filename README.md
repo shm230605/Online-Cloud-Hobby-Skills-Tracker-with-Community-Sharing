@@ -1,8 +1,6 @@
-# Online-Cloud-Hobby & Skills Tracker with Community Sharing
+# 🎯 Online-Cloud-Hobby & Skills Tracker with Community Sharing
 
 A local-first hobby and skills tracker with a polished React dashboard and an independently runnable FastAPI REST service. It demonstrates the practice-to-progress loop, social sharing, user-scoped APIs, JWT authentication, relational data, and private file handling without requiring a paid cloud account.
-
-> **Project status:** the dashboard is a synthetic local demo that persists in browser `localStorage`. The FastAPI service is a separate, authenticated REST implementation backed by SQLite and local disk uploads. The dashboard does not yet synchronize its state with that API; Firebase/AWS hosting and managed object storage are documented as deployment paths, not configured live services.
 
 ## Features
 
