@@ -2,112 +2,163 @@
 
 A local-first hobby and skills tracker with a polished React dashboard and an independently runnable FastAPI REST service. It demonstrates the practice-to-progress loop, social sharing, user-scoped APIs, JWT authentication, relational data, and private file handling without requiring a paid cloud account.
 
+> **Project status:** users sign up and sign in through the FastAPI service. The dashboard has no seeded Jordan Lee account or fictional starter activity; each account starts with an empty workspace. Practice records are currently stored in browser `localStorage`, isolated by API account ID, and are not synchronized to the API. The API separately supports persistent, owner-scoped resources in SQLite and private local uploads. Firebase/AWS hosting and managed object storage are deployment directions, not configured live services.
+
 ## Features
 
 - Create skills and goals, log sessions, and see streaks, weekly time, and goal progress update.
 - Share community updates, attach a small image, like posts, and leave comments.
-- Persist the demo dashboard in the current browser without account credentials.
-- Register/login against a FastAPI API with hashed passwords and expiring bearer tokens.
-- Create owner-scoped skills, goals, practice sessions, posts, comments, likes, and image files.
+- Sign up and sign in with a FastAPI API using hashed passwords and expiring bearer tokens.
+- Keep each signed-in account's dashboard workspace separate in the current browser.
+- Create skills and goals, log practice, and share updates in the browser-local dashboard.
+- Use the API directly for owner-scoped skills, goals, practice sessions, posts, comments, likes, and image files.
 - Calculate dashboard analytics from practice records and update linked goals transactionally.
 - Run automated API tests with a temporary SQLite database and synthetic users.
 - Explore REST documentation at `/docs` after starting the API.
 
 ## 🏗️ Project Architecture
 
-```text
-Online-Cloud-Hobby-Skills-Tracker/
-│
-├── 📁 .github/
-│   └── workflows/              # GitHub Actions / CI-CD workflows
-│
-├── 📁 backend/
-│   ├── controllers/            # Application business logic
-│   ├── routes/                 # API route definitions
-│   ├── models/                 # Data models / schemas
-│   ├── middleware/             # Authentication & request middleware
-│   ├── services/               # Backend services and integrations
-│   └── config/                 # Backend configuration
-│
-├── 📁 cloud/
-│   └── firebase/               # Firebase / cloud configuration
-│       ├── firestore/          # Firestore database configuration
-│       ├── auth/               # Firebase Authentication
-│       └── storage/            # Cloud Storage configuration
-│
-├── 📁 docs/
-│   ├── architecture/           # System architecture documentation
-│   ├── api/                    # API documentation
-│   ├── database/               # Database documentation
-│   └── user-guide/             # User guides and project documentation
-│
-├── 📁 public/
-│   ├── images/                 # Public images and assets
-│   ├── icons/                  # Application icons
-│   └── favicon/                # Website favicon
-│
-├── 📁 reports/
-│   ├── testing/                # Testing reports
-│   ├── project-report/         # Project documentation/reports
-│   └── performance/            # Performance analysis
-│
-├── 📁 screenshots/
-│   ├── dashboard/              # Dashboard screenshots
-│   ├── profile/                # User profile screenshots
-│   ├── hobbies/                # Hobby tracking screenshots
-│   └── community/              # Community feature screenshots
-│
-├── 📁 src/
-│   ├── components/             # Reusable UI components
-│   ├── pages/                  # Application pages
-│   ├── layouts/                # Page layouts
-│   ├── services/               # API / Firebase services
-│   ├── hooks/                  # Custom React hooks
-│   ├── context/                # Global application state
-│   ├── utils/                  # Utility functions
-│   ├── assets/                 # Frontend assets
-│   ├── styles/                 # CSS / styling
-│   └── App.*                   # Main application component
-│
-├── 📄 .env.example             # Environment variable template
-├── 📄 .gitignore               # Git ignored files
-├── 📄 .oxlintrc.json           # Code quality / lint configuration
-├── 📄 README.md                # Project documentation
-├── 📄 index.html               # Application entry HTML
-├── 📄 package.json              # Dependencies and scripts
-└── 📄 package-lock.json         # Locked dependency versions
+### System Overview
+
+The repository contains a React dashboard and a separately usable REST API. The dashboard calls the API for registration, login, and profile verification, but practice workspace records are not yet synchronized with API resources. The Vite development server proxies `/api` and `/health` to FastAPI.
+
+```mermaid
+flowchart LR
+  Person[User]
+  subgraph Browser[Browser]
+    UI[React dashboard]
+    LS[(localStorage<br/>account-specific practice data)]
+    UI --> LS
+  end
+  subgraph Dev[Local development]
+    Vite[Vite dev server<br/>serves UI and proxies configured paths]
+  end
+  subgraph Service[FastAPI service]
+    Routes[REST routes and Pydantic schemas]
+    Auth[JWT authentication<br/>and owner authorization]
+    ORM[SQLAlchemy models and queries]
+    Analytics[Practice analytics<br/>and goal progress]
+    Routes --> Auth
+    Routes --> ORM
+    Routes --> Analytics
+  end
+  DB[(SQLite database)]
+  Files[(Private local uploads)]
+  Person --> UI
+  Vite --> UI
+  Vite -. auth and profile via proxy .-> Routes
+  ORM --> DB
+  Routes --> Files
 ```
-## 🔄 System Architecture
+
+### Components
+
+| Component | Responsibility | Current implementation |
+|---|---|---|
+| Dashboard | Render skills, practice, goals, and community activity; calculate metrics and persist workspace data by account | React 19, Vite, browser `localStorage` |
+| Authentication | Register, sign in, verify the current profile, and retain the short-lived bearer token | FastAPI auth routes; token stored in browser `localStorage` |
+| Development/build server | Serve the dashboard, build static assets, and proxy API paths during development | Vite; `/api` and `/health` target `127.0.0.1:8000` |
+| REST API | Validate requests, authenticate users, enforce resource ownership, and return JSON | FastAPI, Pydantic schemas, bearer JWTs |
+| Persistence | Store accounts, skills, goals, sessions, posts, comments, likes, and upload metadata | SQLAlchemy with SQLite by default; database URL is configurable |
+| File storage | Store uploaded image bytes separately from their database metadata | Local `uploads/` directory; private unless explicitly made public |
+| Tests and CI | Exercise API behavior and check frontend lint/build | Pytest, Oxlint, and GitHub Actions |
+
+### Data Model
+
+```mermaid
+erDiagram
+  USER ||--o{ SKILL : owns
+  USER ||--o{ GOAL : sets
+  USER ||--o{ PRACTICE_SESSION : records
+  SKILL ||--o{ PRACTICE_SESSION : receives
+  SKILL ||--o{ GOAL : tracks
+  USER ||--o{ POST : authors
+  SKILL o|--o{ POST : relates_to
+  POST ||--o{ COMMENT : has
+  USER ||--o{ COMMENT : writes
+  POST ||--o{ POST_LIKE : receives
+  USER ||--o{ POST_LIKE : creates
+  USER ||--o{ FILE_ASSET : owns
 ```
-                         👤 USER
-                           │
-                           ▼
-                 ┌────────────────────┐
-                 │   🌐 Web Frontend  │
-                 │       src/         │
-                 └─────────┬──────────┘
-                           │
-             ┌─────────────┴─────────────┐
-             │                           │
-             ▼                           ▼
-      ┌──────────────┐           ┌──────────────┐
-      │ 🔐 Firebase  │           │ ⚙️ Backend   │
-      │ Authentication│           │    APIs      │
-      └──────┬───────┘           └──────┬───────┘
-             │                           │
-             │                  ┌────────┴────────┐
-             │                  │                 │
-             ▼                  ▼                 ▼
-      ┌────────────┐     ┌────────────┐    ┌────────────┐
-      │ Firestore  │     │   Hobby &  │    │ Community  │
-      │  Database  │     │   Skills   │    │  Sharing   │
-      └────────────┘     │   Service  │    │   Service  │
-                         └────────────┘    └────────────┘
-                                │
-                                ▼
-                       ☁️ Cloud Services
-                       
+
+The API schema uses integer primary keys and foreign keys. Private records carry an owner ID so API queries can constrain reads and writes to the authenticated account. A uniqueness constraint on `(post_id, owner_id)` prevents duplicate likes. Post visibility is explicit; a public post does not automatically make its attached file public.
+
+### Data Flows
+
+1. **Account access:** Sign-up and sign-in forms send credentials through the Vite `/api` proxy. The API hashes passwords with Argon2 and returns a time-limited JWT with the user profile. On reload, the dashboard verifies the token against `/api/profile`.
+2. **Dashboard workspace:** Each account starts with empty skills, sessions, goals, and posts. The dashboard saves changes in browser `localStorage` under keys scoped to that account ID. These dashboard records are not sent to the API and are not shared across browsers.
+3. **Owned API operations:** API clients send the JWT as a bearer token. FastAPI validates request bodies with Pydantic, resolves the token to a user, and scopes private database queries to that user's ID. Community endpoints expose only explicitly public posts.
+4. **Practice and analytics:** API practice sessions must reference a skill owned by the same user. Inserting a session and incrementing matching active goals happen in one database transaction; API analytics aggregate database-backed practice history and goal state.
+5. **Image uploads:** The API checks allowed image types, file signatures, and the 5 MB size limit. It stores image bytes on disk under a generated name and stores ownership and metadata in SQLite. Reading a private file requires an authenticated owner.
+
+### Runtime and Deployment Boundaries
+
+| Concern | Local/demo behavior | Production direction |
+|---|---|---|
+| Frontend | Vite serves the React app; production build is static files in `dist/` | Static hosting behind a CDN |
+| API | FastAPI runs as a separate process on port 8000 | Managed container or serverless service behind HTTPS ingress |
+| Database | SQLite file at `hobby_tracker.db` by default | Managed PostgreSQL or a deliberately designed document database |
+| Media | Private files in local `uploads/` | Private object storage with ownership checks and short-lived signed URLs |
+| Identity | API-local password verification and signed JWT; browser retains the token in `localStorage` | Managed identity provider or a hardened API identity service |
+| Secrets | `.env` is local and gitignored; `.env.example` contains placeholders | Platform secret manager; never expose signing secrets in frontend assets |
+| Observability and recovery | Health endpoint and application logging; no automated backup | Structured logs, metrics, alerts, database backups, and object lifecycle/versioning |
+
+The cloud options in this project are design directions, not provisioned services. Firebase, AWS, and Azure mappings, threat boundaries, and scaling notes are in [docs/architecture.md](docs/architecture.md). API routes and request/response contracts are in [docs/api-reference.md](docs/api-reference.md). Do not describe the dashboard's practice records as synchronized with the API until shared persistence is implemented.
+
+## Requirements
+
+- Node.js 20.19+ or 22.12+ and npm
+- Python 3.11+ (tested with Python 3.14)
+
+## Run the Frontend
+
+```powershell
+npm install
+npm run dev
 ```
+
+Open the local URL printed by Vite (normally `http://localhost:5173`). Start the API as described below to create an account or sign in. Practice records are stored only in this browser and are separated by account.
+
+## Run the API
+
+In a second terminal from the repository root:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+Copy-Item .env.example .env
+uvicorn backend.app.main:app --reload
+```
+
+Set a unique `SECRET_KEY` in `.env` before using the API beyond local testing. API docs are at `http://127.0.0.1:8000/docs`; health check: `http://127.0.0.1:8000/health`. SQLite and uploaded files stay local in `hobby_tracker.db` and `uploads/`.
+
+## Public Preview
+
+The `Publish public preview` GitHub Actions workflow builds a guest-only static version for GitHub Pages. After Pages is enabled for the repository and the workflow completes, the site URL is:
+
+<https://shm230605.github.io/Online-Cloud-Hobby-Skills-Tracker-with-Community-Sharing/>
+
+In GitHub, open **Settings → Pages** and set the build and deployment source to **GitHub Actions**. The preview does not expose the local API: visitors can explore as a guest, and their changes stay in their own browser. Public sign-up and persistent shared accounts require hosting the API and database separately.
+
+Quick synthetic-user check:
+
+```powershell
+$body = @{ email = 'jordan@example.test'; username = 'jordan'; name = 'Jordan Lee'; password = 'local-demo-password' } | ConvertTo-Json
+$account = Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/auth/register -ContentType 'application/json' -Body $body
+$headers = @{ Authorization = "Bearer $($account.access_token)" }
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/skills -Headers $headers -ContentType 'application/json' -Body '{"name":"Photography","category":"Creative"}'
+```
+
+## Tests and Build
+
+```powershell
+npm run lint
+npm run build
+python -m pytest -q
+```
+
+Run Python commands inside the activated `.venv`. Tests create isolated temporary databases; they do not use production data.
 
 ## Security Notes
 

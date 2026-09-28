@@ -26,35 +26,11 @@ import {
   Trophy,
   X,
 } from 'lucide-react'
+import AuthScreen from './AuthScreen.jsx'
 import './App.css'
 
 const today = new Date().toISOString().slice(0, 10)
 const todayLabel = new Intl.DateTimeFormat('en', { weekday: 'long', month: 'long', day: 'numeric' }).format(new Date()).toUpperCase()
-
-const initialSkills = [
-  { id: 's1', name: 'Acoustic guitar', category: 'Music', level: 'Intermediate', target: 'Learn fingerstyle', progress: 68, color: 'coral', icon: '♪' },
-  { id: 's2', name: 'Film photography', category: 'Photography', level: 'Beginner', target: 'Finish a photo series', progress: 42, color: 'blue', icon: '◉' },
-  { id: 's3', name: 'Japanese', category: 'Languages', level: 'Beginner', target: 'Hold a 10-min conversation', progress: 31, color: 'green', icon: 'あ' },
-]
-
-const initialGoals = [
-  { id: 'g1', skillId: 's1', title: 'Practice 10 hours', targetMinutes: 600, currentMinutes: 180, status: 'ACTIVE' },
-]
-
-const initialSessions = [
-  { id: 'p1', skillId: 's1', date: today, minutes: 45, activity: 'Fingerpicking patterns', notes: 'Finally got the rhythm to feel natural.' },
-  { id: 'p2', skillId: 's2', date: today, minutes: 30, activity: 'Golden hour walk', notes: 'Shot a few frames on the old roll.' },
-  { id: 'p3', skillId: 's3', date: today, minutes: 20, activity: 'Lesson 14 · listening', notes: 'Practiced ordering at a cafe.' },
-  { id: 'p4', skillId: 's1', date: shiftDate(today, -1), minutes: 35, activity: 'Chord transitions', notes: 'Slow and steady.' },
-  { id: 'p5', skillId: 's2', date: shiftDate(today, -2), minutes: 55, activity: 'Developed two rolls', notes: '' },
-  { id: 'p6', skillId: 's3', date: shiftDate(today, -3), minutes: 25, activity: 'Kana review', notes: '' },
-  { id: 'p7', skillId: 's1', date: shiftDate(today, -5), minutes: 40, activity: 'Blackbird intro', notes: '' },
-]
-
-const initialPosts = [
-  { id: 'c1', name: 'Amara Chen', handle: '@amaramakes', avatar: 'AC', color: 'avatar-peach', skill: 'Ceramics', time: '18 min ago', text: 'First time pulling a handle that actually feels right. Small wins, big energy.', likes: 18, comments: 4, liked: false, image: 'ceramics' },
-  { id: 'c2', name: 'Theo Williams', handle: '@theowrites', avatar: 'TW', color: 'avatar-lilac', skill: 'Creative writing', time: '1 hr ago', text: 'Seven mornings in a row. The pages are getting easier to fill, and that feels like the whole point.', likes: 12, comments: 2, liked: true, image: '' },
-]
 
 function shiftDate(dateString, amount) {
   const date = new Date(`${dateString}T12:00:00`)
@@ -62,30 +38,112 @@ function shiftDate(dateString, amount) {
   return date.toISOString().slice(0, 10)
 }
 
-function readSaved(key, fallback) {
+function readAuth() {
   try {
-    const value = localStorage.getItem(`little-practice-${key}`)
-    return value ? JSON.parse(value) : fallback
+    return JSON.parse(localStorage.getItem('little-practice-auth'))
   } catch {
-    return fallback
+    return null
   }
 }
 
+function readSaved(accountId, key) {
+  try {
+    const value = localStorage.getItem(`little-practice-${accountId}-${key}`)
+    return value ? JSON.parse(value) : []
+  } catch {
+    return []
+  }
+}
+
+async function apiRequest(path, options = {}) {
+  const { token, ...requestOptions } = options
+  const response = await fetch(path, {
+    ...requestOptions,
+    headers: {
+      ...(requestOptions.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...requestOptions.headers,
+    },
+  })
+  if (!response.ok) {
+    const result = await response.json().catch(() => ({}))
+    throw new Error(result.detail || 'The request could not be completed.')
+  }
+  return response.status === 204 ? null : response.json()
+}
+
 function App() {
-  const [skills, setSkills] = useState(() => readSaved('skills', initialSkills))
-  const [sessions, setSessions] = useState(() => readSaved('sessions', initialSessions))
-  const [goals, setGoals] = useState(() => readSaved('goals', initialGoals))
-  const [posts, setPosts] = useState(() => readSaved('posts', initialPosts))
+  const [auth, setAuth] = useState(readAuth)
+  const [authStatus, setAuthStatus] = useState(() => readAuth()?.access_token ? 'checking' : 'signed-out')
+  const accessToken = auth?.access_token
+
+  useEffect(() => {
+    if (!accessToken) return undefined
+    let cancelled = false
+    apiRequest('/api/profile', { token: accessToken })
+      .then((user) => {
+        const storedAuth = readAuth()
+        if (cancelled || storedAuth?.access_token !== accessToken) return
+        const refreshedAuth = { ...storedAuth, user }
+        localStorage.setItem('little-practice-auth', JSON.stringify(refreshedAuth))
+        setAuth(refreshedAuth)
+        setAuthStatus('authenticated')
+      })
+      .catch(() => {
+        if (cancelled || readAuth()?.access_token !== accessToken) return
+        localStorage.removeItem('little-practice-auth')
+        setAuth(null)
+        setAuthStatus('signed-out')
+      })
+    return () => { cancelled = true }
+  }, [accessToken])
+
+  async function authenticate(mode, values) {
+    const payload = mode === 'register'
+      ? { email: values.email, username: values.username, name: values.name, password: values.password }
+      : { email: values.email, password: values.password }
+    const result = await apiRequest(`/api/auth/${mode}`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+    localStorage.setItem('little-practice-auth', JSON.stringify(result))
+    setAuth(result)
+    setAuthStatus('authenticated')
+  }
+
+  function signOut() {
+    localStorage.removeItem('little-practice-auth')
+    setAuth(null)
+    setAuthStatus('signed-out')
+  }
+
+  if (authStatus === 'checking') return <div className="auth-loading" role="status">Checking your account…</div>
+  if (authStatus !== 'authenticated' || !auth) {
+    return <AuthScreen onSubmit={authenticate} demoOnly={import.meta.env.VITE_PUBLIC_DEMO === 'true'} onGuest={() => {
+      setAuth({ user: { id: 'public-demo', name: 'Guest', username: 'guest' } })
+      setAuthStatus('authenticated')
+    }} />
+  }
+  const guestMode = auth.user.id === 'public-demo'
+  return <Dashboard key={auth.user.id} auth={auth} guestMode={guestMode} onSignOut={signOut} />
+}
+
+function Dashboard({ auth, guestMode, onSignOut }) {
+  const accountId = auth.user.id
+  const [skills, setSkills] = useState(() => readSaved(accountId, 'skills'))
+  const [sessions, setSessions] = useState(() => readSaved(accountId, 'sessions'))
+  const [goals, setGoals] = useState(() => readSaved(accountId, 'goals'))
+  const [posts, setPosts] = useState(() => readSaved(accountId, 'posts'))
   const [activePage, setActivePage] = useState('Overview')
   const [modal, setModal] = useState('')
   const [query, setQuery] = useState('')
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [toast, setToast] = useState('')
 
-  useEffect(() => localStorage.setItem('little-practice-skills', JSON.stringify(skills)), [skills])
-  useEffect(() => localStorage.setItem('little-practice-sessions', JSON.stringify(sessions)), [sessions])
-  useEffect(() => localStorage.setItem('little-practice-goals', JSON.stringify(goals)), [goals])
-  useEffect(() => localStorage.setItem('little-practice-posts', JSON.stringify(posts)), [posts])
+  useEffect(() => localStorage.setItem(`little-practice-${accountId}-skills`, JSON.stringify(skills)), [accountId, skills])
+  useEffect(() => localStorage.setItem(`little-practice-${accountId}-sessions`, JSON.stringify(sessions)), [accountId, sessions])
+  useEffect(() => localStorage.setItem(`little-practice-${accountId}-goals`, JSON.stringify(goals)), [accountId, goals])
+  useEffect(() => localStorage.setItem(`little-practice-${accountId}-posts`, JSON.stringify(posts)), [accountId, posts])
   useEffect(() => {
     if (!toast) return undefined
     const timeout = window.setTimeout(() => setToast(''), 2600)
@@ -125,7 +183,8 @@ function App() {
   }
 
   function addPost(formData) {
-    setPosts((current) => [{ ...formData, id: crypto.randomUUID(), name: 'Jordan Lee', handle: '@jordanlee', avatar: 'JL', color: 'avatar-green', time: 'just now', likes: 0, comments: 0, liked: false, image: '' }, ...current])
+    const initials = auth.user.name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()
+    setPosts((current) => [{ ...formData, id: crypto.randomUUID(), name: auth.user.name, handle: `@${auth.user.username}`, avatar: initials, color: 'avatar-green', time: 'just now', likes: 0, comments: 0, liked: false, image: '' }, ...current])
     setModal('')
     setToast('Your update is out in the community.')
   }
@@ -166,7 +225,9 @@ function App() {
         <div className="streak-mini"><span className="streak-icon"><Flame size={16} fill="currentColor" /></span><span><strong>{currentStreak} day streak</strong><small>Keep the rhythm going</small></span><ArrowUpRight size={15} /></div>
         <div className="sidebar-spacer" />
         <div className="weekly-nudge"><div className="nudge-head"><span>This week</span><Sparkles size={15} /></div><strong>{Math.floor(weekMinutes / 60)}h {weekMinutes % 60}m</strong><small>of your 5 hour intention</small><div className="nudge-track"><span style={{ width: `${Math.min(100, weekMinutes / 300 * 100)}%` }} /></div><span className="nudge-percent">{Math.min(100, Math.round(weekMinutes / 300 * 100))}% complete</span></div>
-        <button className="profile-mini" onClick={() => setToast('Profile settings are coming soon.')}><span className="avatar avatar-jordan">JL</span><span className="profile-copy"><strong>Jordan Lee</strong><small>Free account</small></span><MoreHorizontal size={19} /></button>
+        {guestMode
+          ? <div className="profile-mini"><span className="avatar avatar-jordan">GU</span><span className="profile-copy"><strong>Guest</strong><small>Public preview</small></span></div>
+          : <button className="profile-mini" onClick={onSignOut} aria-label={`Sign out ${auth.user.name}`} title="Sign out"><span className="avatar avatar-jordan">{auth.user.name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</span><span className="profile-copy"><strong>{auth.user.name}</strong><small>Sign out</small></span><MoreHorizontal size={19} /></button>}
       </aside>
 
       <main className="main-panel">

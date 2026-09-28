@@ -6,7 +6,7 @@
 flowchart LR
   U[Browser user] --> UI[React + Vite dashboard]
   UI --> LS[(Browser localStorage demo)]
-  UI -. optional API calls .-> API[FastAPI REST API]
+  UI -->|sign up, sign in, profile check| API[FastAPI REST API]
   API --> AUTH[JWT bearer authentication]
   API --> DB[(SQLite for local development)]
   API --> FS[(Private local upload directory)]
@@ -15,7 +15,7 @@ flowchart LR
   DB --> CALC
 ```
 
-The frontend deliberately works with synthetic local state and no cloud account. The API is an executable REST reference with real persistence and authorization. The current browser app and API are not yet wired together; the Vite proxy is ready for an authenticated client service.
+The dashboard authenticates users through the API, while practice workspace state remains in browser `localStorage` and is not synchronized with API records. New accounts start with an empty dashboard rather than synthetic sample activity. The API is an independently usable REST service with database persistence and owner-scoped authorization; Vite proxies its auth and profile requests during development.
 
 ## Data Model
 
