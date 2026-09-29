@@ -103,8 +103,6 @@ The API schema uses integer primary keys and foreign keys. Private records carry
 | Secrets | `.env` is local and gitignored; `.env.example` contains placeholders | Platform secret manager; never expose signing secrets in frontend assets |
 | Observability and recovery | Health endpoint and application logging; no automated backup | Structured logs, metrics, alerts, database backups, and object lifecycle/versioning |
 
-The cloud options in this project are design directions, not provisioned services. Firebase, AWS, and Azure mappings, threat boundaries, and scaling notes are in [docs/architecture.md](docs/architecture.md). API routes and request/response contracts are in [docs/api-reference.md](docs/api-reference.md). Do not describe the dashboard's practice records as synchronized with the API until shared persistence is implemented.
-
 ## Security Notes
 
 - Passwords are Argon2-hashed; API tokens expire and are sent in the `Authorization: Bearer` header.
