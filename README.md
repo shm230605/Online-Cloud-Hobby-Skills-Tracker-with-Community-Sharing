@@ -105,61 +105,6 @@ The API schema uses integer primary keys and foreign keys. Private records carry
 
 The cloud options in this project are design directions, not provisioned services. Firebase, AWS, and Azure mappings, threat boundaries, and scaling notes are in [docs/architecture.md](docs/architecture.md). API routes and request/response contracts are in [docs/api-reference.md](docs/api-reference.md). Do not describe the dashboard's practice records as synchronized with the API until shared persistence is implemented.
 
-## Requirements
-
-- Node.js 20.19+ or 22.12+ and npm
-- Python 3.11+ (tested with Python 3.14)
-
-## Run the Frontend
-
-```powershell
-npm install
-npm run dev
-```
-
-Open the local URL printed by Vite (normally `http://localhost:5173`). Start the API as described below to create an account or sign in. Practice records are stored only in this browser and are separated by account.
-
-## Run the API
-
-In a second terminal from the repository root:
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-Copy-Item .env.example .env
-uvicorn backend.app.main:app --reload
-```
-
-Set a unique `SECRET_KEY` in `.env` before using the API beyond local testing. API docs are at `http://127.0.0.1:8000/docs`; health check: `http://127.0.0.1:8000/health`. SQLite and uploaded files stay local in `hobby_tracker.db` and `uploads/`.
-
-## Public Preview
-
-The `Publish public preview` GitHub Actions workflow builds a guest-only static version for GitHub Pages. After Pages is enabled for the repository and the workflow completes, the site URL is:
-
-<https://shm230605.github.io/Online-Cloud-Hobby-Skills-Tracker-with-Community-Sharing/>
-
-In GitHub, open **Settings → Pages** and set the build and deployment source to **GitHub Actions**. The preview does not expose the local API: visitors can explore as a guest, and their changes stay in their own browser. Public sign-up and persistent shared accounts require hosting the API and database separately.
-
-Quick synthetic-user check:
-
-```powershell
-$body = @{ email = 'jordan@example.test'; username = 'jordan'; name = 'Jordan Lee'; password = 'local-demo-password' } | ConvertTo-Json
-$account = Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/auth/register -ContentType 'application/json' -Body $body
-$headers = @{ Authorization = "Bearer $($account.access_token)" }
-Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/skills -Headers $headers -ContentType 'application/json' -Body '{"name":"Photography","category":"Creative"}'
-```
-
-## Tests and Build
-
-```powershell
-npm run lint
-npm run build
-python -m pytest -q
-```
-
-Run Python commands inside the activated `.venv`. Tests create isolated temporary databases; they do not use production data.
-
 ## Security Notes
 
 - Passwords are Argon2-hashed; API tokens expire and are sent in the `Authorization: Bearer` header.
@@ -185,7 +130,7 @@ requirements.txt     Python dependencies
 package.json         Frontend scripts and dependencies
 ```
 
-## Portfolio Summary
+## Summary
 
 Built a local-first hobby and skills tracker with React, FastAPI, SQLite, JWT authentication, owner-scoped REST APIs, local object uploads, community interactions, and progress analytics. Designed the architecture to map to managed cloud services while keeping the course demonstration executable without paid infrastructure.
 
